@@ -35,24 +35,20 @@ read_B_and_gamma_correct<-function(dhp,gamma=2.2,rgb=T,stretch_im=F){
   return(imgB)
 }
 
-find_mask_FF<-function(dhp_rast){
-  
-  width_height<-c(ncol(dhp_rast),nrow(dhp_rast))
-  long_side<-which(width_height==max(width_height))
-  short_side<-which(width_height==min(width_height))
-  
+find_mask_FF<-function(dhp_rast,portrait){
+
   mask<-data.frame(
     center_x=xmax(dhp_rast)/2,
     center_y=ymax(dhp_rast)/2,
     radius=round(sqrt((xmax(dhp_rast)/2)^2+(ymax(dhp_rast)/2)^2))-2,
-    portrait = long_side # 0 for square, 1 for portrait, 2 for landscape
+    portrait = portrait # 0 for square, 1 for portrait, 2 for landscape
   )
   crop_ext<-ext(dhp_rast)
   mask<-cbind(mask,as.data.frame(t(unlist(as.list(crop_ext)))))
   return(mask)
 }
 
-find_mask<-function(crop_ext,long_side,circular=T){
+find_mask<-function(crop_ext,portrait){
   xrad<-(xmax(crop_ext) - xmin(crop_ext))/2
   yrad<-(ymax(crop_ext) - ymin(crop_ext))/2
   if(yrad!=xrad){
@@ -70,23 +66,29 @@ find_mask<-function(crop_ext,long_side,circular=T){
     center_x = floor((xmin(crop_ext) + xmax(crop_ext)) / 2),
     center_y = floor((ymin(crop_ext) + ymax(crop_ext)) / 2),
     radius = floor(rad),
-    portrait = long_side # 0 for square, 1 for portrait, 2 for landscape
+    portrait = portrait # 0 for square, 1 for portrait, 2 for landscape
   )
   
   mask<-cbind(mask,as.data.frame(t(unlist(as.list(crop_ext)))))
   return(mask)
 }
 
-plot_with_circ<-function(dhp_rast,mask,crop_ext=NULL){
+plot_with_circ<-function(dhp_rast,mask,crop_ext=NULL,circ=T){
   if(is.null(crop_ext)){crop_ext<-ext(dhp_rast)}
   if(nlyr(dhp_rast)==1){
     plot(terra::crop(dhp_rast,crop_ext), colNA = "black")
   }else{
     plotRGB(terra::crop(dhp_rast,crop_ext), colNA = "black")
   }
-  dd <- dismo::circles(cbind(mask$center_x,mask$center_y), mask$radius, lonlat=F)
-  plot(dd,  add=TRUE, border='red', lwd=3)
-  graphics::segments(mask$center_x,mask$center_y,mask$center_x+mask$radius,mask$center_y,col='red',lwd=3)
+  if(circ==T){
+    dd <- dismo::circles(cbind(mask$center_x,mask$center_y), mask$radius, lonlat=F)
+    plot(dd,  add=TRUE, border='red', lwd=3)
+    graphics::segments(mask$center_x,mask$center_y,mask$center_x+mask$radius,mask$center_y,col='red',lwd=3)
+  }
+  
+  if(circ==F){
+    graphics::segments(mask$center_x,mask$center_y,terra::ext(dhp_rast)[2],terra::ext(dhp_rast)[4],col='red',lwd=3)
+  }
 }
 
 
@@ -173,7 +175,8 @@ bw_plot<-function(img.bw,title){
   return(gg3.2)
 }
 
-getGap<-function(img.bw,path_id=Code,thd=0.013,k=0.5,export.image=F){
+getGap<-function(img.bw,path_id=Code,thd=0.013,k=0.5,export.image=F,th){ # taken from CoveR
+  
   #### determine gap size distribution:
   vals <- matrix(terra::values(img.bw,format='matrix'),nrow = nrow(img.bw),byrow=T)
   y <- mgc::ConnCompLabel(vals)
@@ -232,14 +235,14 @@ getGap<-function(img.bw,path_id=Code,thd=0.013,k=0.5,export.image=F){
       id=base::names(yr),
       CC=1-Large_gap,
       CP=1-(FC/CC),
-      Le=-log(1-FC)/k,
-      L=-CC*log(CP)/k,
-      CI=Le/L,
+      PAIe=-log(1-FC)/k,
+      PAI=-CC*log(CP)/k,
+      CI=PAIe/PAI,
       k=k
     ) |>
     dplyr::select(-c(GF,Canopy,Small_gap,Large_gap)) |>
     dplyr::mutate(
-      imgchannel='Blue',
+      imgchannel="Blue",
       gap_method='Macfarlane',
       gap_thd=thd,
       img_method='Otsu',
@@ -276,7 +279,7 @@ getGap<-function(img.bw,path_id=Code,thd=0.013,k=0.5,export.image=F){
             axis.title.y=element_blank(),
             axis.text.y=element_blank(),
             axis.ticks.y=element_blank(),
-            legend.position = "none")+ggtitle(paste0('im = ',path_id,'; LAI = ',canopy$L))
+            legend.position = "none")+ggtitle(paste0('im = ',path_id,'; LAI = ',canopy$PAI))
     return(gg3.2)
   }else{
     return(canopy)

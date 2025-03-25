@@ -14,6 +14,7 @@ dhp_folders<-unique(dhp_files$file.dirs)
 
 mask_list<-readRDS('DHP_mask_list.rds')
 
+i=1
 
 #choose a directory to examine:
 focus_dir<-dhp_files[which(dhp_files$file.dirs==names(mask_list)[i]),]
@@ -22,17 +23,12 @@ im=1
 
 dhp<-focus_dir$file.path[im]
 dhp_rast<-read_B_and_gamma_correct(dhp,rgb=F)
+plot(dhp_rast)
 
 #inspect mask
 hem_mask<-mask_list[[i]]
 plot_with_circ(dhp_rast,hem_mask)
 plot(dhp_rast)
-
-
-
-
-
-
 
 
 ######## code to determine the crop extent of DHCP
@@ -65,13 +61,15 @@ if(length(short_side)==1){
 }
 
 crop_ext<-ext(xmin,xmax,ymin,ymax)
+
 #add the mask
 hem_mask<-find_mask(crop_ext,portrait)
-#hem_mask<-find_mask_FF(dhp_rast)
-
 plot_with_circ(dhp_rast,hem_mask)
-#plot(dhp_rast)
+
+# if it is a full frame image, unhash and use this instead!!
+#hem_mask<-find_mask_FF(dhp_rast,portrait)
+#plot_with_circ(dhp_rast,hem_mask,circ=F)
 
 mask_list[[i]]<-hem_mask
-names(mask_list)[i]<-dhp_folders[i]
+#names(mask_list)[i]<-dhp_folders[i] #<- check this line works as intended. no new files can be added for this to function correctly.
 saveRDS(mask_list,'DHP_mask_list.rds')
